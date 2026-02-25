@@ -2,10 +2,13 @@ const createFuncMessage = global.utils.message;
 const handlerCheckDB = require("./handlerCheckData.js");
 
 module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData) => {
-	const handlerEvents = require(process.env.NODE_ENV == 'development' ? "./handlerEvents.dev.js" : "./handlerEvents.js")(api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData);
+	const handlerEvents = require(
+		process.env.NODE_ENV == "development"
+			? "./handlerEvents.dev.js"
+			: "./handlerEvents.js"
+	)(api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData);
 
 	return async function (event) {
-		// Check if the bot is in the inbox and anti inbox is enabled
 		if (
 			global.GoatBot.config.antiInbox == true &&
 			(event.senderID == event.threadID || event.userID == event.senderID || event.isGroup == false) &&
@@ -17,8 +20,7 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 
 		await handlerCheckDB(usersData, threadsData, event);
 		const handlerChat = await handlerEvents(event, message);
-		if (!handlerChat)
-			return;
+		if (!handlerChat) return;
 
 		const {
 			onAnyEvent, onFirstChat, onStart, onChat,
@@ -26,8 +28,8 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 			typ, presence, read_receipt
 		} = handlerChat;
 
-
 		onAnyEvent();
+
 		switch (event.type) {
 			case "message":
 			case "message_reply":
@@ -37,29 +39,45 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 				onStart();
 				onReply();
 				break;
+
 			case "event":
 				handlerEvent();
 				onEvent();
 				break;
+
 			case "message_reaction":
 				onReaction();
+
+				const isAdmin = global.GoatBot.config.adminBot.includes(event.userID);
+
+				if (event.reaction === "👎" && isAdmin) {
+					api.removeUserFromGroup(event.senderID, event.threadID, err => {
+						if (err) console.log(err);
+					});
+				}
+
+				if (
+					isAdmin &&
+					(event.reaction === "🐝" ||
+					 event.reaction === "😡" ||
+					 event.reaction === "😾")
+				) {
+					message.unsend(event.messageID);
+				}
 				break;
+
 			case "typ":
 				typ();
 				break;
+
 			case "presence":
 				presence();
 				break;
+
 			case "read_receipt":
 				read_receipt();
 				break;
-			// case "friend_request_received":
-			// { /* code block */ }
-			// break;
 
-			// case "friend_request_cancel"
-			// { /* code block */ }
-			// break;
 			default:
 				break;
 		}
